@@ -1,54 +1,44 @@
-from socket import socket
+import socket
 from threading import *
-from collections import defaultdict
-server=socket()
+import time
+import Crypto
+from Crypto.PublicKey import RSA
+from Crypto import Random
+import pickle
 
-server.bind(("127.0.0.1",4098))
+server=socket.socket()
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-clients=defaultdict(tuple)
+server.bind(("127.0.0.1",2001))
 
-server.listen(3)
+server.listen(10)
+random_generator = Random.new().read
+key = RSA.generate(2048, random_generator)
+private, public = key, key.publickey()   
 
-
-
-  
-   
-def new(con):
-    con.send(bytes("Hey what do u want from server","utf=8"))
+def INTERLOCK(con,addr):
+    con.send(key.publickey().exportKey(format='PEM', passphrase=None, pkcs=1)) 
+    pub=RSA.importKey(con.recv( 2048 ), passphrase=None) 
     while True:
-        print(con.recv(2048).decode())
-        con.send(bytes(input(),"utf-8"))
-
-    
-def connection(con,addr):    
-    con.send(bytes("what is your username ?","utf-8"))
-    k=con.recv(2048).decode()
-    clients[k]=(con,addr)
-    con.send(bytes("If u want communicate with other user say Y or N","utf-8"))
-    y=con.recv(2048).decode()
-    if(y=="Y"):
-      con.send(bytes("give the username with whom u want commuinacte","utf-8"))
-      k=con.recv(2048).decode()
-      for i in clients.keys():
-        if(i==k):
-            con.send(bytes(str(clients[i][0])+" "+str(clients[i][0]),"utf-8"))
-            break
-        else:
-            pass
-      con.send(bytes("There is no such user with that user name","utf-8"))  
-      Thread(new(con)).start()
-    else:
-        Thread(new(con)).start()
-
+       u=con.recv(256)
+       m=key.decrypt(u)
+       print(str(m))
+       print("write your meassage")
+       k=input()
+       f=k[:len(k)//2]
+       s=k[len(k)//2:]
+       enc=pub.encrypt(32,f)
+       con.sendall(pickle.dumps(enc))
+       if(con.recv(256)):
+         mes=con.recv(256)
+         print(str(key.decrypt(mes)))
+         enc=pub.encrypt(32,f)
+         con.sendall(pickle.dumps(enc))    
+       
 
 while True:
     con,addr=server.accept()
-    
-    Thread(connection(con,addr)).start()
-    
-    
-    
-
+    INTERLOCK(con,addr)
 
 con.close()
 server.close()

@@ -1,32 +1,37 @@
-from socket import socket
+import socket
 from threading import *
-client=socket()
+import Crypto
+from Crypto.PublicKey import RSA
+from Crypto import Random
+import pickle
 
-client.bind(("127.0.0.1",2001))
+client=socket.socket()
+client.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-client.connect(("127.0.0.1",4098))
 
-while True:
-    print(client.recv(2048).decode())
-    client.send(bytes(input(),"utf-8"))
-    print(client.recv(2048).decode())
-    k=input()
-    client.send(bytes(k,"utf-8"))
-    if(k=="Y"):
-        k=print(client.recv(2048).decode())
-        if(type(k)==tuple):
-            Thread(connection(k[0],k[1]))
-        else:
-            while True:
-                print(client.recv(2048).decode())
-                client.send(bytes(input(),"utf-8"))
+client.bind(("127.0.0.1",8881))
 
-    else:
-        while True:
-                  print(client.recv(2048).decode())
-                  client.send(bytes(input(),"utf-8"))
+client.connect(("127.0.0.1",2001))
+random_generator = Random.new().read
+key = RSA.generate(2048, random_generator)
+private, public = key, key.publickey()   
 
-def connection(con,addr):
-    pass   
-    
+def INTERLOCK(con):
+    pub=RSA.importKey(con.recv( 2048 ), passphrase=None) 
+    con.send(key.publickey().exportKey(format='PEM', passphrase=None, pkcs=1))
+    while True:
+       print("write your meassage")
+       k=input()
+       f=k[:len(k)//2]
+       s=k[len(k)//2:]
+       enc=pub.encrypt(32,f)
+       con.sendall(pickle.dumps(enc))
+       if(con.recv(256)):
+         mes=con.recv(256)
+         print(str(key.decrypt(mes)))
+         enc=pub.encrypt(32,s)
+         con.sendall(pickle.dumps(enc))    
+       else:
+         client.close()
+INTERLOCK(client)
 client.close()
